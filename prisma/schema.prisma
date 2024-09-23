@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  name         String
+  availability Availability[]
+  bookings     Booking[]
+}
+
+model Availability {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  date      DateTime @default(now()) // Stored in UTC
+  startTime DateTime @default(now()) // Stored in UTC
+  duration  Int      // Duration in minutes
+  available Boolean  @default(true)
+  user      User     @relation(fields: [userId], references: [id])
+  booking   Booking? // One-to-one relationship; one availability can have one booking or zero booking
+}
+
+model Booking {
+  availabilityId Int @id // Ensures that one availability can only be booked once
+  userId        Int
+  user          User       @relation(fields: [userId], references: [id])
+  availability  Availability @relation(fields: [availabilityId], references: [id])
+}
