@@ -8,26 +8,25 @@ datasource db {
 }
 
 model User {
-  id           Int           @id @default(autoincrement())
-  name         String
-  availability Availability[]
-  bookings     Booking[]
+  id       Int       @id @default(autoincrement())
+  name     String
+  slot     Slot[]
+  bookings Booking[]
 }
 
-model Availability {
+model Slot {
   id        Int      @id @default(autoincrement())
   userId    Int
-  date      DateTime @default(now()) // Stored in UTC
-  startTime DateTime @default(now()) // Stored in UTC
-  duration  Int      // Duration in minutes
-  available Boolean  @default(true)
+  startTime BigInt // Start time as epoch timestamp (in milli seconds)
+  duration  Int // Duration in minutes
   user      User     @relation(fields: [userId], references: [id])
-  booking   Booking? // One-to-one relationship; one availability can have one booking or zero booking
+  booking   Booking? // One-to-one relationship; one slot can have one booking or zero booking
 }
 
 model Booking {
-  availabilityId Int @id // Ensures that one availability can only be booked once
-  userId        Int
-  user          User       @relation(fields: [userId], references: [id])
-  availability  Availability @relation(fields: [availabilityId], references: [id])
+  slotId Int  @id // Ensures that one slot can only be booked once
+  userId Int
+  meetingUrl String
+  user   User @relation(fields: [userId], references: [id])
+  slot   Slot @relation(fields: [slotId], references: [id])
 }
