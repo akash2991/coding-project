@@ -1,13 +1,12 @@
-type Duration = number; // Duration in minutes
-type StartTime = string; // Format: "HH:mm"
 type DateString = string; // Format: "YYYY-MM-DD"
 type UserId = number;
 
 
 export interface SlotRequest {
   date: DateString;      
-  startTime: StartTime; 
-  duration: Duration;  
+  startTime: string; 
+endTime: string; 
+timezoneOffset: number
 }
 
 export interface BulkSlotRequest {
@@ -17,8 +16,6 @@ export interface BulkSlotRequest {
 export interface User {
   id: UserId;
   name: string;
-  slots: Slot[];
-  bookings: Booking[];
 }
 
 export interface Booking {
@@ -33,5 +30,5 @@ export interface Slot {
   id: number;
   userId: UserId;
   startTime: number; // Epoch timestamp in seconds
-  duration: Duration;   // Duration in minutes
+  endTime: number; // Epoch timestamp in seconds
 }

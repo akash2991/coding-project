@@ -2,6 +2,7 @@ import { Prisma, PrismaClient } from '@prisma/client'
 
 import express, { Request, Response } from 'express';
 import { SlotRequest, BulkSlotRequest, Slot } from './types';
+import { convertUserInputToDateObject, convertUserInputToEpoch, isAfterTwoWeeks, isInPast, getCurrentUtcTimeStamp } from './util';
 
 
 const prisma = new PrismaClient()
@@ -21,36 +22,39 @@ app.post("/v1/user", async (req, res) => {
 app.post("/v1/user/:userId/slot", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const { date, startTime, duration } : SlotRequest = req.body;
+    const { date, startTime, endTime, timezoneOffset }: SlotRequest = req.body;
 
-    // Ensure the availability is set within 2 weeks
-    const currentDate = new Date();
-    const twoWeeksLater = new Date();
-    twoWeeksLater.setDate(currentDate.getDate() + 14);
+    const resultOne = convertUserInputToDateObject(date, startTime, endTime, timezoneOffset);
 
-    const slot = new Date(date); // Create date object from input date
-    const [hours, minutes] = startTime.split(':').map(Number);
-    slot.setHours(hours, minutes, 0, 0); // Set hours and minutes
-
-    if (slot > twoWeeksLater) {
+    if (isAfterTwoWeeks(resultOne.startTime)) {
       return res.status(400).json({ error: "Slot can only be set for up to 2 weeks in advance." });
     }
 
-    if (slot < currentDate) {
+    if (isInPast(resultOne.startTime)) {
       return res.status(400).json({ error: "Slot can only be set for future dates." });
     }
 
-    // Convert to epoch timestamp
-    const startTimeEpoch = BigInt(slot.getTime())
+    const {startTime:startTimeEpoch, endTime:endTimeEpoch} = convertUserInputToEpoch(date, startTime, endTime, timezoneOffset);
+
+    const user = await prisma.user.findFirst({
+      where: {
+        id: Number(userId)
+      }
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: "User not found" });
+    }
 
     // Check for overlapping slots
-    // FIXME: overlap logic
     const overlaps = await prisma.slot.findMany({
       where: {
         userId: Number(userId),
         startTime: {
-          lte: startTimeEpoch + BigInt(duration * 60 * 1000),
-          gte: startTimeEpoch, 
+          lt: endTimeEpoch
+        },
+        endTime: {
+          gt: startTimeEpoch,
         }
       }
     });
@@ -59,90 +63,30 @@ app.post("/v1/user/:userId/slot", async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Overlapping slot found' });
     }
 
-    const availability = await prisma.slot.create({
+    const bookedSlot = await prisma.slot.create({
       data: {
         userId: Number(userId),
         startTime: startTimeEpoch,
-        duration: duration,
+        endTime: endTimeEpoch,
       },
     });
 
     res.json({
-      ...availability,
-      startTime: Number(availability.startTime),
+      ...bookedSlot,
+      startTime: Number(bookedSlot.startTime),
+      endTime: Number(bookedSlot.endTime)
     });
   } catch (error) {
     res.status(500).json({ error: "An error occurred while creating a slot." });
   }
 });
 
-// XXXXX Bul
-// Body: { "2024-09-25": [["10:00", 60], ["14:00", 30]] }
-// app.post("/v1/user/:userId/slot/bulk", async (req: Request, res: Response) => {
-//   const { userId } = req.params;
-//   const availabilityData : BulkSlotRequest = req.body;
-
-//   const availabilityEntries = [];
-
-//   const currentDate = new Date();
-//   const twoWeeksLater = new Date();
-//   twoWeeksLater.setDate(currentDate.getDate() + 14);
-
-//   const existingAvailabilities = await prisma.slot.findMany({
-//     where: {
-//       userId: Number(userId),
-//     },
-//   });
-
-//     // Create a map for fast overlap checking
-//   const existingAvailabilityMap = new Map<number, Slot>();
-//   existingAvailabilities.forEach(avail => {
-//     existingAvailabilityMap.set(avail.startTime, avail);
-//   });
-
-
-//   for (const [date, availabilitiesOfTheDay] of Object.entries(availabilityData)) {
-//     const entryDate = new Date(date);
-//     if (entryDate > twoWeeksLater) {
-//       continue;
-//     }
-
-//     for (const availabilityOfTheDay of availabilitiesOfTheDay) {
-//       const startEpoch = new Date(`${date}T${availabilityOfTheDay.startTime}`).getTime();
-
-//       // Check for overlapping availability in memory
-//       const hasOverlap = [...existingAvailabilityMap.values()].some(avail => 
-//         startEpoch < avail.startTime + avail.duration * 60 * 1000 && 
-//         startEpoch + availabilityOfTheDay.duration * 60 * 1000 > avail.startTime
-//       );
-
-//       if (hasOverlap) {
-//         return res.status(400).json({ error: 'Overlapping availability found' });
-//       }
-
-//       availabilityEntries.push({
-//         userId: Number(userId),
-//         startTime: startEpoch,
-//         duration:availabilityOfTheDay.duration,
-//       });
-//     }
-//   }
-
-//   const result = await prisma.slot.createMany({
-//     data: availabilityEntries,
-//   });
-
-//   res.json(result);
-// });
-
-
-
 // view slots
 app.get("/v1/user/:userId/slot", async (req: Request, res: Response) => {
   const { userId } = req.params;
   const { type } = req.query;
 
-  const currentTime = BigInt(Date.now());
+  const currentTime = getCurrentUtcTimeStamp();
 
   try {
     if (type === 'booked') {
@@ -156,7 +100,7 @@ app.get("/v1/user/:userId/slot", async (req: Request, res: Response) => {
         },
         include: { booking: true },
       });
-      return res.json(slots.map(slot => ({...slot, startTime: slot.startTime.toString()})));
+      return res.json(slots.map(slot => ({...slot, startTime: slot.startTime.toString(), endTime: slot.endTime.toString()})));
     }
     
     if (type === 'available') {
@@ -168,17 +112,15 @@ app.get("/v1/user/:userId/slot", async (req: Request, res: Response) => {
         }
       });
 
-      return res.json(slots.map(slot => ({...slot, startTime: slot.startTime.toString()})));
+      return res.json(slots.map(slot => ({...slot, startTime: slot.startTime.toString(), endTime: slot.endTime.toString()})));
     }
 
     return res.status(400).json({ error: "Invalid type parameter. Use 'booked' or 'available'." });
 
   } catch (error) {
-    console.error("Error fetching slots:", error);
     res.status(500).json({ error: "An error occurred while fetching slots." });
   }
 });
-
 
 // book slot
 app.post("/v1/book/slot/:slotId", async (req, res) => {
@@ -204,7 +146,7 @@ app.post("/v1/book/slot/:slotId", async (req, res) => {
           slotId: Number(slotId),
           userId: Number(userId),
           meetingUrl: "google://meet/124235"
-        },
+        }
       });
 
       return {
@@ -225,7 +167,6 @@ app.post("/v1/book/slot/:slotId", async (req, res) => {
 
 });
 
-
 // delete slot
 app.delete('/v1/slot/:slotId', async (req, res) => {
   const { slotId } = req.params;
@@ -240,7 +181,8 @@ app.delete('/v1/slot/:slotId', async (req, res) => {
       return res.status(404).json({ error: "Slot not found." });
     }
 
-    const currentTime = Date.now();
+    const currentTime = getCurrentUtcTimeStamp();
+
     if (slot.startTime < currentTime) {
       return res.status(400).json({ error: "Past slots cannot be deleted." });
     }
@@ -257,12 +199,11 @@ app.delete('/v1/slot/:slotId', async (req, res) => {
         where: { id: Number(slotId) },
       });
 
-      return { deletedSlot:{...deletedSlot, startTime: deletedSlot.startTime.toString()}, deletedBooking };
+      return { deletedSlot:{...deletedSlot, startTime: deletedSlot.startTime.toString(), endTime: deletedSlot.endTime.toString()}, deletedBooking };
     });
 
     res.json({ message: "Slot and its booking (if any) have been deleted", result: deleteResult });
   } catch (error) {
-    console.log(error)
     res.status(500).json({ error: "An error occurred while deleting the slot." });
   }
 });
@@ -284,6 +225,12 @@ app.delete('/v1/booking/:slotId', async (req, res) => {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
+    const currentTime = getCurrentUtcTimeStamp();
+
+    if (booking.slot.startTime < currentTime) {
+      return res.status(400).json({ error: "Past bookings cannot be deleted." });
+    }
+
     const slotCreatorId = booking.slot.userId;
     const slotBookerId = booking.userId;
 
@@ -300,13 +247,12 @@ app.delete('/v1/booking/:slotId', async (req, res) => {
   }
 });
 
-
 // gives overlap for the next two weeks
 app.get("/v1/overlap", async (req, res) => {
   try {
     const { userId1, userId2 } = req.query;
 
-    const currentTime = BigInt(Date.now());
+    const currentTime = getCurrentUtcTimeStamp();
 
     const [user1Slots, user2Slots] = await Promise.all([
       prisma.slot.findMany({
@@ -328,32 +274,30 @@ app.get("/v1/overlap", async (req, res) => {
     const overlappingSlots = [];
     for (const slot1 of user1Slots) {
       for (const slot2 of user2Slots) {
-        const slot1End = BigInt(slot1.startTime) + BigInt(slot1.duration * 60000); // Convert minutes to milliseconds
-        const slot2End = BigInt(slot2.startTime) + BigInt(slot2.duration * 60000);
-
         if (
-          (BigInt(slot1.startTime) <= BigInt(slot2.startTime) && slot1End > BigInt(slot2.startTime)) ||
-          (BigInt(slot2.startTime) <= BigInt(slot1.startTime) && slot2End > BigInt(slot1.startTime))
+          slot1.endTime > slot2.startTime && slot1.startTime < slot2.endTime
         ) {
-          overlappingSlots.push({ user1Slot: {...slot1, startTime: slot1.startTime.toString()}, user2Slot: {...slot2, startTime: slot2.startTime.toString()} });
+          overlappingSlots.push({
+            user1Slot: {
+              ...slot1,
+              startTime: slot1.startTime.toString(),
+              endTime: slot1.endTime.toString()
+            },
+            user2Slot: {
+              ...slot2,
+              startTime: slot2.startTime.toString(),
+              endTime: slot2.endTime.toString()
+            }
+          });
         }
       }
     }
 
     res.json(overlappingSlots);
   } catch (error) {
-    console.log(error)
     res.status(500).json({ error: "An error occurred while finding a overlap." });
   }
 });
-
-
-
-
-
-
-
-
 
 
 const server = app.listen(3000, () =>

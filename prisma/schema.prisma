@@ -18,14 +18,14 @@ model Slot {
   id        Int      @id @default(autoincrement())
   userId    Int
   startTime BigInt // Start time as epoch timestamp (in milli seconds)
-  duration  Int // Duration in minutes
+  endTime BigInt // Start time as epoch timestamp (in milli seconds)
   user      User     @relation(fields: [userId], references: [id])
   booking   Booking? // One-to-one relationship; one slot can have one booking or zero booking
 }
 
 model Booking {
   slotId Int  @id // Ensures that one slot can only be booked once
-  userId Int
+  userId Int 
   meetingUrl String
   user   User @relation(fields: [userId], references: [id])
   slot   Slot @relation(fields: [slotId], references: [id])
