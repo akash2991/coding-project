@@ -1,0 +1,241 @@
+{
+	"info": {
+		"_postman_id": "483013e6-d1ce-4610-bb69-1d35056f83d2",
+		"name": "p0",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "29223608"
+	},
+	"item": [
+		{
+			"name": "add user",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"name\": \"Vaibhav\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{pou_url}}/v1/user",
+					"host": [
+						"{{pou_url}}"
+					],
+					"path": [
+						"v1",
+						"user"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "add slot",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"date\": \"2024-09-27\",\n    \"startTime\": \"17:00\",\n    \"endTime\": \"18:00\",\n    \"timezoneOffset\": 330\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{pou_url}}/v1/user/:userId/slot",
+					"host": [
+						"{{pou_url}}"
+					],
+					"path": [
+						"v1",
+						"user",
+						":userId",
+						"slot"
+					],
+					"variable": [
+						{
+							"key": "userId",
+							"value": "1"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "book slot",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"userId\" : \"4\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{pou_url}}/v1/book/slot/:slotId",
+					"host": [
+						"{{pou_url}}"
+					],
+					"path": [
+						"v1",
+						"book",
+						"slot",
+						":slotId"
+					],
+					"variable": [
+						{
+							"key": "slotId",
+							"value": "12"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "delete slot",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"userId\" : \"2\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{pou_url}}/v1/slot/:slotId",
+					"host": [
+						"{{pou_url}}"
+					],
+					"path": [
+						"v1",
+						"slot",
+						":slotId"
+					],
+					"variable": [
+						{
+							"key": "slotId",
+							"value": "6"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "delete booking",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"userId\" : \"1\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{pou_url}}/v1/booking/:slotId",
+					"host": [
+						"{{pou_url}}"
+					],
+					"path": [
+						"v1",
+						"booking",
+						":slotId"
+					],
+					"variable": [
+						{
+							"key": "slotId",
+							"value": "3"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get slots",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{pou_url}}/v1/user/:userId/slot?type=booked",
+					"host": [
+						"{{pou_url}}"
+					],
+					"path": [
+						"v1",
+						"user",
+						":userId",
+						"slot"
+					],
+					"query": [
+						{
+							"key": "type",
+							"value": "booked"
+						}
+					],
+					"variable": [
+						{
+							"key": "userId",
+							"value": "1"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "overlapping slots",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{pou_url}}/v1/overlap?userId1=1&userId2=2",
+					"host": [
+						"{{pou_url}}"
+					],
+					"path": [
+						"v1",
+						"overlap"
+					],
+					"query": [
+						{
+							"key": "userId1",
+							"value": "1"
+						},
+						{
+							"key": "userId2",
+							"value": "2"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "pou_url",
+			"value": "http://localhost:3000"
+		}
+	]
+}
