@@ -9,7 +9,7 @@ CREATE TABLE "Slot" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "userId" INTEGER NOT NULL,
     "startTime" BIGINT NOT NULL,
-    "duration" INTEGER NOT NULL,
+    "endTime" BIGINT NOT NULL,
     CONSTRAINT "Slot_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
